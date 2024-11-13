@@ -1,0 +1,48 @@
+ dnf install -y python3-pip npm
+ npm install -g configurable-http-proxy
+ pip install jupyterhub jupyterlab notebook
+
+ mkdir /etc/jupyterhub
+ jupyterhub --generate-config
+ mv jupyterhub_config.py /etc/jupyterhub
+
+ cat << EOF >> /etc/jupyterhub/jupyterhub_config.py
+ 
+ c.Authenticator.allow_all = True
+ c.JupyterHub.ip = ''
+ EOF
+ 
+ firewall-cmd --permanent --add-port=8000/tcp
+ firewall-cmd --reload
+ 
+ jupyterhub --config /etc/jupyterhub/jupyterhub_config.py
+ 
+ touch /etc/systemd/system/jupyterhub.service
+ 
+ cat << EOF >> /etc/systemd/system/jupyterhub.service
+ 
+ [Unit]
+ Description=JupyterHub service
+ After=syslog.target network.target
+ 
+ [Service]
+ User=root
+ Type=simple
+ WorkingDirectory=/etc/jupyterhub
+ ExecStart=/usr/local/bin/jupyterhub --config=jupyterhub_config.py
+ ExecStop=/usr/bin/pkill -f jupyterhub
+ Restart=always
+ TimeoutStartSec=60
+ RestartSec=60
+ StandardOutput=syslog
+ StandardError=syslog
+ SyslogIdentifier=jupyterhub
+
+ [Install]
+ WantedBy=multi-user.target network-online.target
+ EOF
+ 
+ systemctl daemon-reload
+ systemctl enable jupyterhub
+ systemctl start jupyterhub
+ systemctl status jupyterhub
